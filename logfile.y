@@ -42,6 +42,7 @@
 
 %type <dval> dateline
 
+%type <rval> ws
 %type <rval> integer
 %type <rval> word
 %type <rval> symbol
@@ -52,7 +53,7 @@
 %%
 
 logfile:
-  lines { lgf("LOGFILE\n"); }
+  lines                             { lgf("LOGFILE\n"); }
   ;
 
 lines:
@@ -67,17 +68,26 @@ line:
                                         add_day(root, current_day);
                                         current_day = new_day();
                                     }
-  | timestamp ws timerange text nl  { lgf("timestamped logline\n"); }
-  | timestamp text nl               { lgf("timestamped line\n"); }
-  | timerange text nl               { lgf("logline\n"); }
-  | text nl                         { lgf("noteline\n"); }
-  | nl                              { lgf("empty line\n"); }
+  | timerange text nl               { 
+                                      lgf("logline\n");
+                                    }
+  | timestamp ws timerange text nl  {
+                                      lgf("timestamped logline\n");
+                                    }
+  | timestamp text nl               {
+                                      lgf("timestamped line\n");
+                                    }
+  | text nl                         { 
+                                      lgf("noteline\n");
+                                    }
+  | nl                              { 
+                                      lgf("empty line\n");
+                                    }
   ;
 
 text:
   text any
   | any
-  |
   ;
 
 any:
@@ -88,15 +98,15 @@ any:
   | tag
   ;
 
-nl:         NL
-ws:         WS
+nl:         NL                      { ; }
+ws:         WS                      { ; }
+dateline:   DATE                    { $1[16] = 0; $$ = set_date(0, $1+6); }
+timerange:  TIMERANGE               { $$->begin = set_begin(0, $1); $$->end = set_end(0, $1); }
+timestamp:  TIMESTAMP               { $$->recorded_at = set_time(0, $1); }
+tag:        TAG                     { $$->tags = add_tag($$->tags, $1); }
 integer:    INT                     { $$->notes = append_note($$->notes, $1); }
 word:       WORD                    { $$->notes = append_note($$->notes, $1); }
 symbol:     SYMBOL                  { $$->notes = append_note($$->notes, $1); }
-tag:        TAG                     { $$->tags = add_tag($$->tags, $1); }
-dateline:   DATE                    { $1[16] = 0; $$ = set_date(0, $1+6); }
-timestamp:  TIMESTAMP               { $$->recorded_at = set_time(0, $1); }
-timerange:  TIMERANGE               { $$->begin = set_begin(0, $1); $$->end = set_end(0, $1); }
 
 %%
 
