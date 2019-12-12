@@ -1,3 +1,5 @@
+CFLAGS = -g
+
 .PHONY: all
 all: logf
 
@@ -15,8 +17,11 @@ lex.yy.c: logfile.l logfile.tab.h
 	flex logfile.l
 
 logf: lex.yy.o logfile.tab.o journal.o
-	gcc $^ -o logf
+	gcc $(CFLAGS) $^ -o logf
+
+%.o: %.c
+	gcc -c $(CFLAGS) $< -o $@
 
 .PHONY: test
 test: logf
-	cat examples/example_1 | ./logf
+	-./logf examples/example_1

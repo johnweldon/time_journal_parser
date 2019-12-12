@@ -30,7 +30,6 @@ enum yytokentype position(enum yytokentype type, const char * val) {
       break;
     case INT:
       type_name = "integer";
-      yylval.ival = atoi(val);
       break;
     case TAG:
       type_name = "tag";

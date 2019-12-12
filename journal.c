@@ -14,7 +14,7 @@ append_note(const char * p, char * v )
         return (char *) p;
     }
 
-    char * buf;
+    char * buf = 0;
 
     if (0 == p) {
         buf = strndup(v, MAX_LEN);
@@ -34,17 +34,16 @@ set_date(struct date * d, const char * v)
     }
 
     if (0 == d) {
-        d = malloc(sizeof(struct date));
+        d = new_date();
     }
 
-    char buf[12];
+    char buf[11];
     strncpy(buf, v, 10);
-    buf[4] = 0;
-    d->year = atoi(buf);
+    d->day = atoi(buf + 8);
     buf[7] = 0;
     d->month = atoi(buf + 5);
-    buf[10] = 0;
-    d->day = atoi(buf + 8);
+    buf[4] = 0;
+    d->year = atoi(buf);
     return d;
 }
 
@@ -55,57 +54,56 @@ struct time * set_time(struct time * t, const char * v)
     }
 
     if (0 == t) {
-        t = malloc(sizeof(struct time));
-    }
-
-    char buf[12];
-    strncpy(buf, v, 10);
-    buf[3] = 0;
-    t->hour = atoi(buf + 1);
-    buf[6] = 0;
-    t->minute = atoi(buf + 4);
-    buf[9] = 0;
-    t->second = atoi(buf + 7);
-    return t;
-}
-
-struct time * set_begin(struct time * t, const char * v)
-{
-    if (0 == v) {
-        return t;
-    }
-
-    if (0 == t) {
-        t = malloc(sizeof(struct time));
+        t = new_time();
     }
 
     char buf[5];
     strncpy(buf, v, 4);
-    t->minute = atoi(buf + 3);
+    t->second = 0;
+    t->minute = atoi(buf + 2);
     buf[2] = 0;
     t->hour = atoi(buf);
     return t;
 }
 
-struct time * set_end(struct time * t, const char * v)
+struct time * set_timestamp(struct time * t, const char * v)
 {
     if (0 == v) {
         return t;
     }
 
     if (0 == t) {
-        t = malloc(sizeof(struct time));
+        t = new_time();
     }
 
-    char buf[5];
-    strncpy(buf, v + 5, 4);
-    t->minute = atoi(buf + 3);
-    buf[2] = 0;
-    t->hour = atoi(buf);
+    char buf[11];
+    buf[9] = 0;
+    strncpy(buf, v, 10);
+    t->second = atoi(buf + 7);
+    buf[6] = 0;
+    t->minute = atoi(buf + 4);
+    buf[3] = 0;
+    t->hour = atoi(buf + 1);
     return t;
 }
 
+struct timerange * set_timerange(struct timerange * t, const char * v)
+{
+    if (0 == v) {
+        return t;
+    }
 
+    if (0 == t) {
+        t = new_timerange();
+    }
+
+    char buf[10];
+    strncpy(buf, v, 9);
+    t->end = set_time(t->end, buf + 5);
+    buf[4] = 0;
+    t->begin = set_time(t->begin, buf);
+    return t;
+}
 
 int
 compare_short(short l, short r)
@@ -144,6 +142,30 @@ compare_time(struct time * l, struct time * r)
 
     if (0 == cmp) {
         cmp = compare_short(l->second, r->second);
+    }
+
+    return cmp;
+}
+
+int
+compare_timerange(struct timerange * l, struct timerange * r)
+{
+    if (l == r) {
+        return 0;
+    }
+
+    if (0 == l) {
+        return -1;
+    }
+
+    if (0 == r) {
+        return 1;
+    }
+
+    int cmp = compare_time(l->begin, r->begin);
+
+    if (0 == cmp) {
+        cmp = compare_time(l->end, r->end);
     }
 
     return cmp;
@@ -195,11 +217,7 @@ compare_record(struct record * l, struct record * r)
     int cmp = compare_time(l->recorded_at, r->recorded_at);
 
     if (0 == cmp) {
-        cmp = compare_time(l->begin, r->begin);
-    }
-
-    if (0 == cmp) {
-        cmp = compare_time(l->end, r->end);
+        cmp = compare_timerange(l->range, r->range);
     }
 
     return cmp;
@@ -309,6 +327,32 @@ add_day(struct journal * tree, struct day * data)
     }
 }
 
+struct date * new_date()
+{
+    struct date * data = malloc(sizeof(struct date));
+    data->year = 0;
+    data->month = 0;
+    data->day = 0;
+    return data;
+}
+
+struct time * new_time()
+{
+    struct time * data = malloc(sizeof(struct time));
+    data->hour = 0;
+    data->minute = 0;
+    data->second = 0;
+    return data;
+}
+
+struct timerange * new_timerange()
+{
+    struct timerange * data = malloc(sizeof(struct timerange));
+    data->begin = new_time();
+    data->end = new_time();
+    return data;
+}
+
 struct tags * new_tags()
 {
     struct tags * data = malloc(sizeof(struct tags));
@@ -322,8 +366,7 @@ struct record * new_record()
 {
     struct record * data = malloc(sizeof(struct record));
     data->recorded_at = 0;
-    data->begin = 0;
-    data->end = 0;
+    data->range = 0;
     data->tags = 0;
     data->notes = 0;
     return data;
@@ -376,6 +419,23 @@ print_time(int depth, struct time * t)
 }
 
 void
+print_timerange(int depth, struct timerange * t)
+{
+    if (0 == t) {
+        return;
+    }
+
+    if (0 != t->begin) {
+        print_time(depth + 1, t->begin);
+        fprintf(stdout, "-");
+    }
+
+    if (0 != t->end) {
+        print_time(depth + 1, t->end);
+    }
+}
+
+void
 print_tags(int depth, struct tags * t)
 {
     if(0 == t) {
@@ -396,9 +456,8 @@ print_record(int depth, struct record * d)
         return;
     }
 
-    fprintf(stdout, "\n%*s record %p %p %p %p %p\n", depth, indent_s,
-            d->recorded_at,
-            d->begin, d->end, d->notes, d->tags);
+    fprintf(stdout, "\n%*s record %p %p %p %p\n", depth, indent_s,
+            d->recorded_at, d->range, d->notes, d->tags);
 
     if (0 != d->recorded_at) {
         fprintf(stdout, "[");
@@ -406,14 +465,8 @@ print_record(int depth, struct record * d)
         fprintf(stdout, "] ");
     }
 
-    if (0 != d->begin) {
-        print_time(depth + 1, d->begin);
-        fprintf(stdout, "-");
-    }
-
-    if (0 != d->end) {
-        print_time(depth + 1, d->end);
-        fprintf(stdout, " ");
+    if (0 != d->range) {
+        print_timerange(depth + 1, d->range);
     }
 
     if (0 != d->notes) {

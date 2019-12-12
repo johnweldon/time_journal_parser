@@ -3,11 +3,13 @@
   #include <stdio.h>
   #include <stdlib.h>
   #include <stdarg.h>
+  #include <string.h>
 
   #include "journal.h"
 
   extern int yylex();
   extern int yyparse();
+  extern FILE *yyin;
   extern int my_byte;
   extern int my_line;
   extern int my_col;
@@ -18,15 +20,15 @@
 
   struct journal * root = 0;
   struct day * current_day = 0;
-  struct record * current_record = 0;
 
 %}
 
 
 %union {
-  int ival;
   char *sval;
   struct date * dval;
+  struct time * tval;
+  struct timerange * trval;
   struct record * rval;
 }
 
@@ -42,13 +44,18 @@
 
 %type <dval> dateline
 
-%type <rval> ws
-%type <rval> integer
-%type <rval> word
-%type <rval> symbol
-%type <rval> tag
-%type <rval> timestamp
-%type <rval> timerange
+%type <sval> ws
+%type <sval> integer
+%type <sval> word
+%type <sval> symbol
+%type <sval> text
+%type <sval> any
+
+%type <sval> tag
+
+%type <tval> timestamp
+
+%type <trval> timerange
 
 %%
 
@@ -70,6 +77,7 @@ line:
                                     }
   | timerange text nl               { 
                                       lgf("logline\n");
+                                      printf("TR %p TXT %p\n", $1, $2);
                                     }
   | timestamp ws timerange text nl  {
                                       lgf("timestamped logline\n");
@@ -100,23 +108,29 @@ any:
 
 nl:         NL                      { ; }
 ws:         WS                      { ; }
-dateline:   DATE                    { $1[16] = 0; $$ = set_date(0, $1+6); }
-timerange:  TIMERANGE               { $$->begin = set_begin(0, $1); $$->end = set_end(0, $1); }
-timestamp:  TIMESTAMP               { $$->recorded_at = set_time(0, $1); }
-tag:        TAG                     { $$->tags = add_tag($$->tags, $1); }
-integer:    INT                     { $$->notes = append_note($$->notes, $1); }
-word:       WORD                    { $$->notes = append_note($$->notes, $1); }
-symbol:     SYMBOL                  { $$->notes = append_note($$->notes, $1); }
+dateline:   DATE                    { printf(" > dateline %p %p\n", $$, $1); $1[16] = 0; $$ = set_date($$, strndup($1+6, 10)); }
+timerange:  TIMERANGE               { printf(" > timerange %p %p\n", $$, $1); $$ = set_timerange($$, strndup($1, 10)); }
+timestamp:  TIMESTAMP               { printf(" > timestamp %p %p\n", $$, $1); $$ = set_timestamp($$, strndup($1, 10)); }
+tag:        TAG                     { printf(" > tag %p %p\n", $$, $1); $$ = $1; }
+integer:    INT                     { printf(" > integer %p %p\n", $$, $1); $$ = $1; }
+word:       WORD                    { printf(" > word %p %p\n", $$, $1);$$ = $1; }
+symbol:     SYMBOL                  { printf(" > symbol %p %p\n",$$, $1); $$ = $1; }
 
 %%
 
 int main(int argc, char ** argv) {
+  fprintf(stdout, "\nbegin\n");
   root = new_journal();
   current_day = new_day();
-  current_record = new_record();
 
+  fprintf(stdout, "\n parse\n");
+  yyin = stdin;
+  if(argc>1) {
+    yyin = fopen(argv[1], "r");
+  }
   yyparse();
 
+  fprintf(stdout, "\n print\n");
   print_journal(0, root);
   fprintf(stdout, "\ndone\n");
 }
