@@ -46,20 +46,36 @@ struct journal {
     struct journal * r;
 };
 
-int compare_short(short l, short r);
-int compare_date(struct date * l, struct date * r);
-int compare_time(struct time * l, struct time * r);
-int compare_record(struct record * l, struct record * r);
-int compare_day(struct day * l, struct day * r);
+int compare_short(short, short);
+int compare_date(struct date *, struct date *);
+int compare_time(struct time *, struct time *);
+int compare_record(struct record *, struct record *);
+int compare_day(struct day *, struct day *);
 
-struct tags * add_tag(struct tags * tree, char * name);
-struct records * add_record(struct records * tree, struct record * data);
-struct journal * add_day(struct journal * tree, struct day * data);
+struct tags * add_tag(struct tags *, char *);
+struct records * add_record(struct records *, struct record *);
+struct journal * add_day(struct journal *, struct day *);
 
 struct tags * new_tags();
 struct record * new_record();
 struct records * new_records();
 struct day * new_day();
 struct journal * new_journal();
+
+
+char * append_note(const char *, char *);
+
+struct date * set_date(struct date *, const char *);
+struct time * set_time(struct time *, const char *);
+struct time * set_begin(struct time *, const char *);
+struct time * set_end(struct time *, const char *);
+
+void print_date(int depth, struct date *);
+void print_time(int depth, struct time *);
+void print_tags(int depth, struct tags *);
+void print_record(int depth, struct record *);
+void print_records(int depth, struct records *);
+void print_day(int depth, struct day *);
+void print_journal(int depth, struct journal *);
 
 #endif /* _logfile_h_ */

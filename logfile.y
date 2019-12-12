@@ -18,6 +18,7 @@
 
   struct journal * root = 0;
   struct day * current_day = 0;
+  struct record * current_record = 0;
 
 %}
 
@@ -25,6 +26,8 @@
 %union {
   int ival;
   char *sval;
+  struct date * dval;
+  struct record * rval;
 }
 
 %token <sval> NL
@@ -36,6 +39,15 @@
 %token <sval> TIMESTAMP
 %token <sval> TIMERANGE
 %token <sval> DATE
+
+%type <dval> dateline
+
+%type <rval> integer
+%type <rval> word
+%type <rval> symbol
+%type <rval> tag
+%type <rval> timestamp
+%type <rval> timerange
 
 %%
 
@@ -49,7 +61,12 @@ lines:
   ;
 
 line:
-  dateline nl                       { lgf("dateline\n"); }
+  dateline nl                       { 
+                                        lgf("dateline\n");
+                                        current_day->date = $1;
+                                        add_day(root, current_day);
+                                        current_day = new_day();
+                                    }
   | timestamp ws timerange text nl  { lgf("timestamped logline\n"); }
   | timestamp text nl               { lgf("timestamped line\n"); }
   | timerange text nl               { lgf("logline\n"); }
@@ -73,22 +90,24 @@ any:
 
 nl:         NL
 ws:         WS
-integer:    INT
-word:       WORD
-symbol:     SYMBOL
-tag:        TAG
-dateline:   DATE
-timestamp:  TIMESTAMP
-timerange:  TIMERANGE
+integer:    INT                     { $$->notes = append_note($$->notes, $1); }
+word:       WORD                    { $$->notes = append_note($$->notes, $1); }
+symbol:     SYMBOL                  { $$->notes = append_note($$->notes, $1); }
+tag:        TAG                     { $$->tags = add_tag($$->tags, $1); }
+dateline:   DATE                    { $1[16] = 0; $$ = set_date(0, $1+6); }
+timestamp:  TIMESTAMP               { $$->recorded_at = set_time(0, $1); }
+timerange:  TIMERANGE               { $$->begin = set_begin(0, $1); $$->end = set_end(0, $1); }
 
 %%
 
 int main(int argc, char ** argv) {
-  root = add_day(root, 0);
-  current_day = root->data;
+  root = new_journal();
+  current_day = new_day();
+  current_record = new_record();
 
   yyparse();
 
+  print_journal(0, root);
   fprintf(stdout, "\ndone\n");
 }
 
