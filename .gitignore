@@ -1,4 +1,5 @@
-logf
-*.yy.c
-*.tab.?
 *.o
+*.tab.?
+*.yy.c
+logf
+main
